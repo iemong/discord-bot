@@ -1,7 +1,8 @@
 import {HTTPException} from "hono/http-exception";
 import {parseFeed} from "htmlparser2";
+import {RSSItem} from "../types/rss";
 
-export const fetchItemsFromRSS = async (url: string) => {
+export const fetchItemsFromRSS = async (url: string): Promise<RSSItem[]> => {
 	const response = await fetch(url)
 
 	if (!response.ok) {
