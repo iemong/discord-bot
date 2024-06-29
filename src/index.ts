@@ -58,10 +58,43 @@ app.post('/', async (c) => {
 	return c.json({message: 'Message sent'})
 })
 
+const scheduled: ExportedHandlerScheduledHandler<Bindings> = async (_event, env, c) => {
+	const functionToRun = async (env: Bindings) => {
+		for (const rss of RSSList.keys()) {
+			const items = await fetchItemsFromRSS(RSSList.get(rss)!)
+			const item = items[0]
+
+			if (!item || !item.link) {
+				throw new HTTPException(500, {message: 'No items found'})
+			}
+
+			const lastRssLink = await env.rss_manager.get(rss)
+
+			if (lastRssLink !== null && item.link === lastRssLink) {
+				console.info('duplicated item')
+				continue
+			}
+
+			await env.rss_manager.put(rss, item.link)
+			const res = await fetch(env.WEBHOOK_ENDPOINT, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					content: `${item.title} \r ${item.link}`
+				})
+			})
+
+			if (!res.ok) {
+				throw new HTTPException(500, {message: 'Failed to send message'})
+			}
+		}
+	}
+	c.waitUntil(functionToRun(env));
+}
 
 export default {
 	fetch: app.fetch,
-	scheduled: async (batch: any, env: any) => {
-		console.log({batch, env})
-	}
+	scheduled
 }
